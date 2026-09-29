@@ -1,6 +1,6 @@
 {
-  "name": "MMS — Mattheüs Messaging Service",
-  "short_name": "MMS",
+  "name":"MMS — Mattheüs Messaging Service",
+  "short_name":"MMS",
   "id": ".",
   "start_url": ".",
   "scope": ".",
