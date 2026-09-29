@@ -1,4 +1,4 @@
-const CACHE='mms-20260929-1618';
+const CACHE='mms-20260929-1625';
 const STATIC=['./styles.css?v=20260929-1618','./app.js?v=20260929-1618','./crypto-core.js?v=20260929-1618','./guest.html','./guest.js','./manifest.webmanifest?v=20260929-1618','./icon.svg?v=20260929-1618'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(STATIC)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
