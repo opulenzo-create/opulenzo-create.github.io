@@ -143,6 +143,16 @@ async function addInvite(code){
   session.vault.contacts[p.id]={id:p.id,name:alias,phone:null,pinnedSignFingerprint:serverSignFp,signPub:p.signPub,agreePub:p.agreePub,signAlg:p.signAlg,agreeAlg:p.agreeAlg,addedAt:now(),verified:false,numberSharedOut:false};
   session.vault.ratchets[p.id]=await initialRatchets(p.id,root);session.vault.chats[p.id]=session.vault.chats[p.id]||[];await encryptVault();session.selected=p.id;await renderApp();await pollInbox()
 }
+async function addPhoneContact(phone){
+  phone=normalizePhone(phone);
+  const {profile:p}=await api('/api/discover',{method:'POST',headers:authHeader(),body:JSON.stringify({requesterId:session.id,phone})});
+  if(!p||p.id===session.id)throw new Error(p?.id===session.id?'Dit is je eigen telefoonnummer.':'Geen MMS-profiel gevonden.');
+  if(!(await verifyBundle(p)))throw new Error('Dit contact gebruikt nog een oudere MMS identity-signature. Laat die persoon MMS één keer ontgrendelen en probeer daarna opnieuw.');
+  const fp=await fingerprintJwk(p.signPub),root=await contactRoot(p),existing=session.vault.contacts[p.id];
+  if(existing){existing.phone=phone;existing.name=existing.name||phone;session.selected=p.id;await encryptVault();await renderApp();return}
+  session.vault.contacts[p.id]={id:p.id,name:phone,phone,pinnedSignFingerprint:fp,signPub:p.signPub,agreePub:p.agreePub,signAlg:p.signAlg,agreeAlg:p.agreeAlg,addedAt:now(),verified:false,phoneDiscovery:true,numberSharedOut:false};
+  session.vault.ratchets[p.id]=await initialRatchets(p.id,root);session.vault.chats[p.id]=session.vault.chats[p.id]||[];session.selected=p.id;await encryptVault();await renderApp();await pollInbox()
+}
 
 async function sendMessage(text){text=text.trim();if(!text||!session.selected)return;touch();const peerId=session.selected,c=session.vault.contacts[peerId];if(c?.type==='guest')return sendGuestMessage(peerId,text);const rat=session.vault.ratchets[peerId];if(!c||!rat)throw new Error('Contactbeveiliging ontbreekt.');const n=rat.sendN,chain=B64.dec(rat.send),key=await msgKey(chain,n),iv=rand(12),id=newId(18),ts=now();const payload={t:'msg',text};if(!c.numberSharedOut){payload.phone=session.vault.phone;c.numberSharedOut=true}const head={v:4,id,from:session.id,to:peerId,n,ts,iv:B64.enc(iv)},aad=canonicalHead(head),k=await aesKey(key);const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:TE.encode(aad),tagLength:128},k,TE.encode(JSON.stringify(payload))));const sig=await signBytes(session.vault.privateKeys.signPriv,session.vault.public.signAlg,concat(TE.encode(aad),ct));const env={...head,ct:B64.enc(ct),sig:B64.enc(sig)};rat.send=B64.enc(await nextChain(chain));rat.sendN=n+1;session.vault.chats[peerId].push({id,dir:'out',text,ts,n});await encryptVault();try{await api('/api/send',{method:'POST',headers:authHeader(),body:JSON.stringify({from:session.id,to:peerId,envelope:env})})}catch(e){session.vault.chats[peerId].push({id:newId(12),dir:'sys',text:'Verzenden mislukt: '+e.message,ts:now(),n:-1});await encryptVault();throw e}await renderMessages()}
 
