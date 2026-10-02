@@ -1,0 +1,90 @@
+'use strict';
+import {TE,TD,B64,rand,concat,sha256,aesEnc,aesDec,deriveKEK} from './crypto-core.js?v=20261002-1321';
+
+const BUILD='0.9.1-stable-access';
+const DB='MMS_APP_V4';
+const ITERS=600000;
+let dbPromise=null,activeId=null,busy=false;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const bioName=()=>isIOS()?'Face ID / Touch ID':'Biometrie / apparaatbeveiliging';
+const k=id=>'mms_access2_'+id;
+const get=id=>{try{return JSON.parse(localStorage.getItem(k(id))||'null')}catch{return null}};
+const set=(id,v)=>localStorage.setItem(k(id),JSON.stringify({v:2,id,...v}));
+const del=id=>localStorage.removeItem(k(id));
+const webauthn=()=>location.protocol==='https:'&&!!window.PublicKeyCredential&&!!navigator.credentials?.create&&!!navigator.credentials?.get;
+
+function db(){if(dbPromise)return dbPromise;dbPromise=new Promise((res,rej)=>{const r=indexedDB.open(DB);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});return dbPromise}
+async function accounts(){const d=await db();return new Promise((res,rej)=>{const r=d.transaction('accounts','readonly').objectStore('accounts').getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error)})}
+async function vault(id){const d=await db();return new Promise((res,rej)=>{const r=d.transaction('vaults','readonly').objectStore('vaults').get(id);r.onsuccess=()=>res(r.result||null);r.onerror=()=>rej(r.error)})}
+async function validPassword(id,pw){const r=await vault(id);if(!r?.wrap)return false;try{const key=await deriveKEK(pw,B64.dec(r.wrap.salt),r.wrap.iters||ITERS);await aesDec(key,r.wrap.wrapped,'MMS-V4-MASTER:'+id);return true}catch{return false}}
+async function prfKey(out){return sha256(concat(TE.encode('MMS-ACCESS-PRF-V2|'),new Uint8Array(out)))}
+
+async function createCredential(label,secret){
+  if(!webauthn())throw new Error(bioName()+' wordt door deze browser niet ondersteund.');
+  const salt=rand(32);
+  const cred=await navigator.credentials.create({publicKey:{challenge:rand(32),rp:{name:'MMS',id:location.hostname},user:{id:rand(24),name:'mms-'+Date.now(),displayName:label||'MMS'},pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-8}],authenticatorSelection:{authenticatorAttachment:'platform',residentKey:'preferred',userVerification:'required'},timeout:60000,attestation:'none',extensions:{prf:{eval:{first:salt}}}}});
+  if(!cred)throw new Error('Biometrische registratie is geannuleerd.');
+  const base={credentialId:B64.url(new Uint8Array(cred.rawId)),salt:B64.enc(salt),secret};
+  const out=cred.getClientExtensionResults?.()?.prf?.results?.first;
+  if(out){const key=await prfKey(out);return{ready:{mode:'biometric',credentialId:base.credentialId,salt:base.salt,wrapped:await aesEnc(key,secret,'MMS-ACCESS-PASSWORD-V2')}}}
+  return{pending:base};
+}
+async function finishCredential(p){
+  const a=await navigator.credentials.get({publicKey:{challenge:rand(32),rpId:location.hostname,allowCredentials:[{type:'public-key',id:B64.unurl(p.credentialId)}],userVerification:'required',timeout:60000,extensions:{prf:{eval:{first:B64.dec(p.salt)}}}}});
+  const out=a?.getClientExtensionResults?.()?.prf?.results?.first;if(!out)throw new Error('Deze browser leverde geen PRF-sleutel terug. Gebruik voorlopig je wachtwoord.');
+  return{mode:'biometric',credentialId:p.credentialId,salt:p.salt,wrapped:await aesEnc(await prfKey(out),p.secret,'MMS-ACCESS-PASSWORD-V2')};
+}
+async function biometricPassword(rec){
+  const a=await navigator.credentials.get({publicKey:{challenge:rand(32),rpId:location.hostname,allowCredentials:[{type:'public-key',id:B64.unurl(rec.credentialId)}],userVerification:'required',timeout:60000,extensions:{prf:{eval:{first:B64.dec(rec.salt)}}}}});
+  const out=a?.getClientExtensionResults?.()?.prf?.results?.first;if(!out)throw new Error(bioName()+' kon de lokale MMS-sleutel niet vrijgeven. Gebruik je wachtwoord.');
+  return TD.decode(await aesDec(await prfKey(out),rec.wrapped,'MMS-ACCESS-PASSWORD-V2'));
+}
+
+async function waitFor(fn,ms=8000){const end=Date.now()+ms;while(Date.now()<end){const v=fn();if(v)return v;await sleep(40)}return null}
+async function openWith(original,id,pw){activeId=id;original();const input=await waitFor(()=>document.querySelector('#gate input[type="password"]'));if(!input)throw new Error('Ontgrendelscherm ontbreekt.');input.value=pw;const b=[...document.querySelectorAll('#gate button')].find(x=>(x.textContent||'').trim()==='Ontgrendel');if(!b)throw new Error('Ontgrendelknop ontbreekt.');b.click()}
+
+async function enhanceAccounts(){
+  const list=document.querySelector('#gate .accounts');if(!list)return;
+  const rows=[...list.querySelectorAll('.account')].filter(x=>x.dataset.access2!=='1');if(!rows.length)return;
+  const as=await accounts();
+  for(const row of rows){row.dataset.access2='1';const sm=row.querySelector('small'),primary=row.querySelector('button');if(!sm||!primary)continue;const prefix=((sm.textContent||'').match(/MMS ID\s+([^…]+)/)||[])[1]||'',a=as.find(x=>x.id.startsWith(prefix));if(!a)continue;const original=primary.onclick;primary.onclick=()=>{activeId=a.id;original()};const rec=get(a.id);if(!rec)continue;
+    const actions=document.createElement('div');actions.style.cssText='display:flex;gap:6px;flex-wrap:wrap';primary.remove();actions.append(primary);row.append(actions);
+    if(rec.mode==='biometric'){primary.textContent=bioName();primary.onclick=async()=>{primary.disabled=true;try{await openWith(original,a.id,await biometricPassword(rec))}catch(e){alert(e.message||String(e))}finally{primary.disabled=false}}}
+    if(rec.mode==='none'){primary.textContent='Open';primary.onclick=async()=>{primary.disabled=true;try{await openWith(original,a.id,rec.password)}catch(e){alert(e.message||String(e))}finally{primary.disabled=false}}}
+    const fallback=document.createElement('button');fallback.className='btn';fallback.textContent='Wachtwoord';fallback.onclick=()=>{activeId=a.id;original()};actions.append(fallback);
+  }
+}
+
+function noteCreate(){const c=document.querySelector('#gate .card');if(!c||c.dataset.access2Create==='1'||(c.querySelector('h2')?.textContent||'').trim()!=='Nieuwe MMS-identiteit')return;c.dataset.access2Create='1';const fields=c.querySelectorAll('.field');if(fields.length<2)return;const n=document.createElement('div');n.className='notice good';n.innerHTML='<strong>Sessie-ontgrendeling</strong><br>Maak eerst je recovery-wachtwoord aan. Daarna kun je via <b>Beveiliging</b> '+bioName()+' inschakelen, zodat je het wachtwoord normaal niet hoeft in te typen.';fields[0].after(n)}
+
+function modal(title,copy){const m=document.getElementById('modal');m.innerHTML='<h2>'+title+'</h2><p>'+copy+'</p>';m.classList.remove('hidden');return m}
+async function setupBio(a){
+  const m=modal(bioName()+' instellen','Je wachtwoord blijft als fallback beschikbaar. Eerst controleren we het één keer; daarna activeer je biometrie met een aparte tik.');
+  const w=document.createElement('div');w.className='field';w.innerHTML='<label>Huidig MMS-wachtwoord</label><input type="password" autocomplete="current-password">';const e=document.createElement('div');e.className='error';const b=document.createElement('button');b.className='btn primary';b.style.width='100%';b.textContent='Controleer wachtwoord';const close=document.createElement('button');close.className='btn';close.style.cssText='width:100%;margin-top:8px';close.textContent='Annuleren';close.onclick=()=>m.classList.add('hidden');
+  b.onclick=async()=>{b.disabled=true;e.textContent='';const secret=w.querySelector('input').value;try{if(!(await validPassword(a.id,secret)))throw new Error('Huidig wachtwoord klopt niet.');b.disabled=false;b.textContent='Activeer '+bioName();b.onclick=async()=>{b.disabled=true;try{const r=await createCredential(a.label,secret);if(r.ready){set(a.id,r.ready);m.classList.add('hidden');return}b.disabled=false;b.textContent='Bevestig '+bioName();e.style.color='var(--muted)';e.textContent='Tik nog één keer om de vault-sleutel aan biometrie te koppelen.';b.onclick=async()=>{b.disabled=true;try{set(a.id,await finishCredential(r.pending));m.classList.add('hidden')}catch(err){e.style.color='';e.textContent=err.message||String(err);b.disabled=false}}}catch(err){e.textContent=err.message||String(err);b.disabled=false}}}catch(err){e.textContent=err.message||String(err);b.disabled=false}};
+  m.append(w,e,b,close);
+}
+async function setupNone(a){
+  const m=modal('Geen extra sessievergrendeling','MMS bewaart je recovery-wachtwoord dan lokaal op dit privéapparaat. Je kunt later altijd terug naar Alleen wachtwoord.');const w=document.createElement('div');w.className='field';w.innerHTML='<label>Huidig MMS-wachtwoord</label><input type="password" autocomplete="current-password">';const e=document.createElement('div');e.className='error';const b=document.createElement('button');b.className='btn primary';b.style.width='100%';b.textContent='Zet extra vergrendeling uit';b.onclick=async()=>{b.disabled=true;try{const pw=w.querySelector('input').value;if(!(await validPassword(a.id,pw)))throw new Error('Huidig wachtwoord klopt niet.');set(a.id,{mode:'none',password:pw});m.classList.add('hidden')}catch(err){e.textContent=err.message||String(err);b.disabled=false}};const close=document.createElement('button');close.className='btn';close.style.cssText='width:100%;margin-top:8px';close.textContent='Annuleren';close.onclick=()=>m.classList.add('hidden');m.append(w,e,b,close);
+}
+async function currentAccount(){if(activeId)return (await accounts()).find(x=>x.id===activeId)||null;const label=document.getElementById('meName')?.textContent||'';return (await accounts()).find(x=>x.label===label)||null}
+async function enhanceSecurity(){
+  const m=document.getElementById('modal');if(!m||m.classList.contains('hidden')||m.dataset.access2==='1'||(m.querySelector('h2')?.textContent||'').trim()!=='MMS Security State')return;m.dataset.access2='1';const a=await currentAccount();if(!a)return;const rec=get(a.id),sec=document.createElement('div');sec.style.cssText='border-top:1px solid var(--line);margin-top:14px;padding-top:14px';sec.innerHTML='<strong>Sessie openen</strong><div style="margin:7px 0;font-size:11px;color:var(--accent)">'+(rec?.mode==='biometric'?bioName():rec?.mode==='none'?'Geen extra vergrendeling':'Wachtwoord')+'</div>';
+  const corePw=[...m.querySelectorAll('button')].find(x=>(x.textContent||'').trim()==='Wachtwoord wijzigen');if(rec&&corePw){corePw.disabled=true;corePw.title='Kies eerst Alleen wachtwoord gebruiken, wijzig daarna het wachtwoord en activeer biometrie eventueel opnieuw.'}
+  if(!rec){const bio=document.createElement('button');bio.className='btn primary';bio.style.width='100%';bio.textContent=bioName()+' toevoegen';bio.onclick=()=>setupBio(a);sec.append(bio);const none=document.createElement('button');none.className='btn';none.style.cssText='width:100%;margin-top:8px';none.textContent='Geen extra sessievergrendeling';none.onclick=()=>setupNone(a);sec.append(none)}else{const pw=document.createElement('button');pw.className='btn';pw.style.width='100%';pw.textContent='Alleen wachtwoord gebruiken';pw.onclick=()=>{del(a.id);m.classList.add('hidden')};sec.append(pw);if(rec.mode!=='biometric'){const bio=document.createElement('button');bio.className='btn primary';bio.style.cssText='width:100%;margin-top:8px';bio.textContent=bioName()+' gebruiken';bio.onclick=()=>setupBio(a);sec.append(bio)}}
+  const close=m.lastElementChild;m.insertBefore(sec,close||null);
+}
+
+async function inviteCode(){const b=document.getElementById('inviteBtn');if(!b||b.disabled)throw new Error('Ontgrendel eerst MMS.');b.click();const box=await waitFor(()=>document.querySelector('#modal .codebox'));if(!box)throw new Error('Invite kon niet worden gemaakt.');const code=box.textContent||'';document.getElementById('modal').classList.add('hidden');return code}
+async function inviteContact(){
+  const code=await inviteCode();const text='Ik nodig je uit voor MMS — Mattheüs Messaging Service. Open https://opulenzo-create.github.io/ en voeg mij toe met deze MMS invite-code:\n\n'+code;const m=modal('Contact uitnodigen','Je privésleutel en berichten worden niet gedeeld.');
+  if(navigator.contacts?.select){const p=document.createElement('button');p.className='btn primary';p.style.width='100%';p.textContent='Kies uit contacten';p.onclick=async()=>{try{const c=await navigator.contacts.select(['name','tel'],{multiple:false});const tel=c?.[0]?.tel?.[0];if(tel)location.href='sms:'+tel+'?body='+encodeURIComponent(text)}catch(e){if(e.name!=='AbortError')alert(e.message||String(e))}};m.append(p)}
+  const share=document.createElement('button');share.className='btn primary';share.style.cssText='width:100%;margin-top:8px';share.textContent=isIOS()?'Kies contact via Delen':'Delen';share.onclick=async()=>{try{if(navigator.share)await navigator.share({title:'MMS uitnodiging',text});else{await navigator.clipboard.writeText(text);alert('Uitnodiging gekopieerd.')}}catch(e){if(e.name!=='AbortError')alert(e.message||String(e))}};m.append(share);
+  const copy=document.createElement('button');copy.className='btn';copy.style.cssText='width:100%;margin-top:8px';copy.textContent='Kopieer uitnodiging';copy.onclick=async()=>{await navigator.clipboard.writeText(text);copy.textContent='Gekopieerd'};m.append(copy);const note=document.createElement('div');note.className='notice';note.textContent=isIOS()?'iPhone geeft webapps geen directe toegang tot de volledige contactenlijst. Via Delen kies je Berichten, WhatsApp, Mail en daarna de ontvanger.':'MMS krijgt alleen toegang tot een contact dat jij expliciet selecteert.';m.append(note);const close=document.createElement('button');close.className='btn';close.style.width='100%';close.textContent='Sluiten';close.onclick=()=>m.classList.add('hidden');m.append(close);
+}
+function enhanceInvite(){const add=document.querySelector('.side .add');if(add&&!document.getElementById('inviteContact2')){const b=document.createElement('button');b.id='inviteContact2';b.className='btn';b.textContent='Nodig contact uit';b.onclick=()=>inviteContact().catch(e=>alert(e.message||String(e)));const er=document.getElementById('contactError');add.insertBefore(b,er||null)}const b=document.getElementById('inviteContact2');if(b)b.disabled=document.getElementById('inviteCodeBtn')?.disabled??true;const m=document.getElementById('modal');if(m&&!m.classList.contains('hidden')&&(m.querySelector('h2')?.textContent||'').trim()==='Contact'&&!m.querySelector('[data-invite2]')){const x=document.createElement('button');x.dataset.invite2='1';x.className='btn primary';x.style.cssText='width:100%;margin-top:8px';x.textContent='Nodig iemand uit';x.onclick=()=>inviteContact().catch(e=>alert(e.message||String(e)));m.insertBefore(x,m.lastElementChild||null)}}
+
+async function enhance(){if(busy)return;busy=true;try{await enhanceAccounts();noteCreate();await enhanceSecurity();enhanceInvite();const p=document.querySelector('#gate .card p[style*="font-size:10px"]');if(p&&!p.textContent.includes(BUILD))p.textContent+=' · '+BUILD}catch(e){console.warn('MMS Access 0.9.1:',e)}finally{busy=false}}
+new MutationObserver(()=>enhance()).observe(document.documentElement,{childList:true,subtree:true});
+addEventListener('DOMContentLoaded',enhance);addEventListener('pageshow',enhance);setTimeout(enhance,0);setInterval(enhance,700);
