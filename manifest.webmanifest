@@ -1,43 +1,18 @@
 {
   "name":"MMS — Mattheüs Messaging Service",
   "short_name":"MMS",
-  "id": ".",
-  "start_url": ".",
-  "scope": ".",
-  "display": "standalone",
-  "display_override": [
-    "standalone",
-    "minimal-ui"
-  ],
-  "orientation": "portrait-primary",
-  "background_color": "#06100d",
-  "theme_color": "#07110f",
-  "description": "Security-first end-to-end encrypted messaging alpha for phone and desktop.",
-  "categories": [
-    "social",
-    "communication",
-    "security"
-  ],
-  "prefer_related_applications": false,
-  "icons": [
-    {
-      "src": "./icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "MMS openen",
-      "short_name": "Chats",
-      "url": "./"
-    },
-    {
-      "name": "Secure Guest",
-      "short_name": "Guest",
-      "url": "./?action=guest"
-    }
-  ]
-  ,"version":"20260929-1618"
+  "id":".",
+  "start_url":".",
+  "scope":".",
+  "display":"standalone",
+  "display_override":["standalone","minimal-ui"],
+  "orientation":"portrait-primary",
+  "background_color":"#06100d",
+  "theme_color":"#07110f",
+  "description":"Security-first end-to-end encrypted messaging alpha for phone and desktop.",
+  "categories":["social","communication","security"],
+  "prefer_related_applications":false,
+  "icons":[{"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}],
+  "shortcuts":[{"name":"MMS openen","short_name":"Chats","url":"./"},{"name":"Secure Guest","short_name":"Guest","url":"./?action=guest"}],
+  "version":"20261005-1615"
 }
