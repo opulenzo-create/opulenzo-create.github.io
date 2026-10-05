@@ -19,7 +19,7 @@ jobs:
         run: |
           set -euo pipefail
           node --check mms-stability.js
-          node --check mms-calls.js
+          node --check mms-calls2.js
           node --check sw.js
           node --input-type=module --check < app.js
           node --input-type=module --check < crypto-core.js
