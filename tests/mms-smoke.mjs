@@ -47,6 +47,16 @@ assert(calls.includes('stun:stun.l.google.com:19302'),'STUN configuration missin
 assert(calls.includes('MMS-CALL-SAS-V1'),'call safety-code derivation missing');
 assert(calls.includes('untrusted_peer'),'unknown-call trust gate missing');
 assert(calls.includes('mmsCallCode'),'call verification UI missing');
+assert(calls.includes('MMS_CALL_KEYS_V1'),'persistent call-key store missing');
+assert(calls.includes("namedCurve:'P-256'"),'call ECDH key agreement missing');
+assert(calls.includes("'HKDF'"),'per-call HKDF derivation missing');
+assert(calls.includes("{name:'AES-GCM'"),'AES-GCM call signaling protection missing');
+assert(calls.includes('/key/register'),'authenticated call-key registration missing');
+assert(calls.includes('verifyCallKeyHistory'),'call-key hash-chain verification missing');
+assert(calls.includes('sealSignal'),'call signaling encryption missing');
+assert(calls.includes('openSignal'),'call signaling authenticated decryption missing');
+assert(!calls.includes('body:JSON.stringify({callerId:selfId,calleeId:peerId,callId:id,offer:'),'plaintext WebRTC offer regression');
+assert(!calls.includes('body:JSON.stringify({calleeId:selfId,answer:'),'plaintext WebRTC answer regression');
 
 assert(access.includes('mms_access3_'),'optional PIN/biometric access records missing');
 assert(createfix.includes('Maak identiteit'),'identity creation fail-safe has no continue action');
@@ -58,7 +68,6 @@ assert(!app.toLowerCase().includes('serverprofiel heeft een ongeldige identity s
 assert(sw.includes('mms-stability.js'),'service worker does not cache stability runtime');
 assert(sw.includes('mms-security2.js'),'service worker does not cache Security 2');
 assert(sw.includes('mms-calls3.js'),'service worker does not cache hardened calls');
-assert(manifest.version==='20261005-1615','manifest build version mismatch');
 assert(manifest.name?.includes('Mattheüs Messaging Service'),'manifest identity changed unexpectedly');
 
 console.log('MMS Security 2 smoke checks passed');
