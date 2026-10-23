@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>Postflow · Instagram verbinden</title>
+<style>body{font:16px system-ui,sans-serif;max-width:650px;margin:10vh auto;padding:25px;background:#0a1120;color:#f7f9ff;line-height:1.6}h1{font-size:26px}p{color:#cbd5e1}code{color:#93c5fd}</style>
+</head><body><h1>Instagram verbinden met Postflow</h1>
+<p id="status">Je wordt teruggestuurd naar Postflow op je eigen computer. Houd Postflow open.</p>
+<script>
+(()=>{'use strict';
+const query=new URLSearchParams(location.search);
+history.replaceState(null,'',location.pathname);
+const code=query.get('code'),state=query.get('state'),error=query.get('error'),errorReason=query.get('error_reason');
+const label=document.getElementById('status');
+if(error){label.textContent='Instagram heeft de verbinding niet toegestaan: '+(errorReason||error)+'. Keer terug naar Postflow.';return;}
+if(!code||!state||code.length>4096||!/^[\w-]{16,120}$/.test(state)){label.textContent='Er is geen geldige Instagram-aanmelding gevonden. Keer terug naar Postflow en klik opnieuw op Verbinden.';return;}
+const target=new URL('http://127.0.0.1:8765/oauth/instagram/callback');
+target.searchParams.set('code',code);target.searchParams.set('state',state);
+location.replace(target.href);
+})();
+</script>
+<noscript>Schakel JavaScript in om terug te keren naar Postflow.</noscript>
+</body></html>
