@@ -1,23 +1,70 @@
 <!doctype html>
-<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
-<title>Postflow · Instagram verbinden</title>
-<style>body{font:16px system-ui,sans-serif;max-width:650px;margin:10vh auto;padding:25px;background:#0a1120;color:#f7f9ff;line-height:1.6}h1{font-size:26px}p{color:#cbd5e1}code{color:#93c5fd}</style>
-</head><body><h1>Instagram verbinden met Postflow</h1>
-<p id="status">Je wordt teruggestuurd naar Postflow op je eigen computer. Houd Postflow open.</p>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+  <title>Postflow · Instagram koppelen</title>
+  <style>
+    :root{color-scheme:dark;--bg:#080d17;--panel:#121b2b;--ink:#f5f8ff;--muted:#aebbd1;--line:#2b3b53;--blue:#6ca8ff}
+    *{box-sizing:border-box}body{min-height:100vh;margin:0;padding:22px;display:grid;place-items:center;background:radial-gradient(circle at 85% 10%,#173457 0%,transparent 38%),var(--bg);font:16px/1.6 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}
+    main{width:min(100%,580px);padding:clamp(22px,6vw,42px);background:var(--panel);border:1px solid var(--line);border-radius:20px;box-shadow:0 24px 70px #0005}
+    .eyebrow{font-size:12px;font-weight:750;letter-spacing:.16em;text-transform:uppercase;color:var(--blue)}h1{font-size:clamp(25px,5vw,33px);line-height:1.2;margin:12px 0 18px}
+    p{color:var(--muted)}.status{padding:13px 16px;border:1px solid var(--line);border-radius:12px;background:#0b1423;color:var(--ink)}
+    .actions{display:grid;gap:11px;margin:22px 0}.action{display:block;padding:14px 18px;border-radius:12px;text-align:center;text-decoration:none;font-weight:700;border:1px solid var(--line);color:var(--ink);background:#1a2942}
+    .action.primary{background:#317cf1;color:white;border-color:#317cf1}.action[aria-disabled="true"]{opacity:.45;pointer-events:none}
+    .subtle{font-size:13px;margin-bottom:0}strong{color:var(--ink)}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">Postflow / Accountkoppeling</div>
+    <h1>Instagram verbinden</h1>
+    <p id="status" class="status" role="status" aria-live="polite">Aanmelding controleren…</p>
+    <div class="actions">
+      <a id="open-current" class="action primary" aria-disabled="true" tabindex="-1">Open in Postflow 0.4.2</a>
+      <a id="open-legacy" class="action" aria-disabled="true" tabindex="-1">Ik gebruik Postflow 0.4.1</a>
+    </div>
+    <p class="subtle">Laat <strong>Postflow op je computer geopend</strong>. Er opent een nieuw browsertabblad; deze pagina blijft beschikbaar als je de andere versie moet proberen. Postflow bewaart je toegangscode niet op deze website.</p>
+  </main>
 <script>
-(()=>{'use strict';
-const query=new URLSearchParams(location.search);
-history.replaceState(null,'',location.pathname);
-const code=query.get('code'),state=query.get('state'),error=query.get('error'),errorReason=query.get('error_reason');
-const label=document.getElementById('status');
-if(error){label.textContent='Instagram heeft de verbinding niet toegestaan: '+(errorReason||error)+'. Keer terug naar Postflow.';return;}
-if(!code||!state||code.length>4096||!/^[\w-]{16,120}$/.test(state)){label.textContent='Er is geen geldige Instagram-aanmelding gevonden. Keer terug naar Postflow en klik opnieuw op Verbinden.';return;}
-const target=new URL('http://127.0.0.1:8765/oauth/instagram/callback');
-target.searchParams.set('code',code);target.searchParams.set('state',state);
-location.replace(target.href);
+(() => {
+  'use strict';
+  const q = new URLSearchParams(location.search);
+  // Verwijder codes direct uit de URL zonder ze aan derden te versturen.
+  history.replaceState(null, '', location.pathname);
+  const status = document.getElementById('status');
+  const current = document.getElementById('open-current');
+  const legacy = document.getElementById('open-legacy');
+  const error = q.get('error');
+  if (error) {
+    status.textContent = 'Instagram heeft geen toestemming gegeven (' + error.slice(0, 120) + '). Ga terug naar Postflow en probeer opnieuw.';
+    return;
+  }
+  if (q.getAll('code').length !== 1 || q.getAll('state').length !== 1) {
+    status.textContent = 'Er is geen geldige aanmelding ontvangen. Start de verbinding opnieuw vanuit Postflow.';
+    return;
+  }
+  const code = q.get('code');
+  const state = q.get('state');
+  if (!code || !state || code.length > 4096 || !/^[\w-]{16,120}$/.test(state)) {
+    status.textContent = 'Instagram heeft ongeldige verbindingsgegevens teruggestuurd. Start opnieuw vanuit Postflow.';
+    return;
+  }
+  for (const [element, port] of [[current, 8765], [legacy, 8877]]) {
+    const local = new URL('http://127.0.0.1:' + port + '/oauth/instagram/callback');
+    local.searchParams.set('code', code);
+    local.searchParams.set('state', state);
+    element.href = local.href;
+    element.target = '_blank';
+    element.rel = 'noopener noreferrer';
+    element.removeAttribute('aria-disabled');
+    element.removeAttribute('tabindex');
+  }
+  status.textContent = 'Je aanmelding is ontvangen. Kies hieronder je Postflow-versie om de koppeling op je eigen computer af te ronden.';
 })();
 </script>
-<noscript>Schakel JavaScript in om terug te keren naar Postflow.</noscript>
-</body></html>
+<noscript>JavaScript moet ingeschakeld zijn. Keer terug naar Postflow en start de verbinding opnieuw.</noscript>
+</body>
+</html>
