@@ -1,0 +1,28 @@
+name: Postflow Instagram callback checks
+
+on:
+  pull_request:
+    paths:
+      - 'postflow/instagram-callback.html'
+      - 'postflow/tests/**'
+      - '.github/workflows/postflow-callback-checks.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'postflow/instagram-callback.html'
+      - 'postflow/tests/**'
+
+permissions:
+  contents: read
+
+jobs:
+  callback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate Instagram OAuth callback
+        run: node postflow/tests/instagram-callback.test.cjs
