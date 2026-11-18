@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111022">
-<meta name="description" content="BRAINBOOST 5.0 — Een avontuurlijke planner en gewoontegame met begrijpelijke streaks, beloningen en een persoonlijke startgids.">
-<title>BRAINBOOST 5.0 — Presentatiedemo</title>
+<meta name="description" content="BRAINBOOST 5.0 — Speelbare gastdemo: alleen je naam invullen en direct aan de slag, zonder inloggen.">
+<title>BRAINBOOST 5.0 — Demo zonder inloggen</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%234e347c'/%3E%3Ctext x='32' y='45' font-size='40' text-anchor='middle'%3E%F0%9F%A7%A0%3C/text%3E%3C/svg%3E">
 <style>
 
@@ -270,7 +270,7 @@ window.addEventListener('error',function(event){
 });
 
 (()=>{'use strict';
-const KEY='brainboost-v2', OLDKEY='brainboost-v1', DAY_MS=86400000;
+const KEY='brainboost-5-demo-guest-v1', OLDKEY='brainboost-5-demo-guest-legacy', DAY_MS=86400000;
 const $=q=>document.querySelector(q), $$=q=>[...document.querySelectorAll(q)];
 const nowDay=()=>localDate(new Date());
 const localDate=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
@@ -811,34 +811,22 @@ const achievements=[{icon:'🌱',title:'Eerste stap',need:'Voltooi één doel',d
 return `<div class="stats-streak-intro">${streakCard()}<div class="card stats-streak-rules"><h2>Jouw reeks, jouw tempo</h2><p class="muted">Eén dagelijks doel voltooien is genoeg voor een streakdag. Alle dagdoelen gehaald? Dan verdien je óók een perfecte dag.</p><div class="report-row"><span>🔥 Actieve dagen op rij</span><b>${st.current}</b></div><div class="report-row"><span>🏅 Beste dagreeks</span><b>${st.best}</b></div><div class="report-row"><span>✨ Perfecte dagen</span><b>${st.perfectDays}</b></div><div class="report-row"><span>🏃 Wekelijkse doelreeks</span><b>${st.weekly.current} weken</b></div><p class="notice">Vandaag telt pas mee zodra je één dagelijks doel afrondt. Rustdagen zijn neutraal. Weekdoelen zijn los van de dagreeks.</p><button class="button ghost sm" data-streak-info>Lees de volledige regels</button></div></div><div class="stats-grid"><div class="statbox big"><strong>⚡ ${money(xp())}</strong><span>TOTALE XP</span></div><div class="statbox big"><strong>🔥 ${st.current}</strong><span>ACTIEVE DAGEN OP RIJ</span></div><div class="statbox big"><strong>🏅 ${st.best}</strong><span>BESTE DAGREEKS</span></div><div class="statbox big"><strong>⏱️ ${focus}</strong><span>FOCUSBLOKKEN</span></div></div><div class="panel-grid"><div class="stack"><section class="card"><div class="card-title"><h2>Je laatste 14 dagen</h2><span class="chip">Dagdoelen</span></div><p class="small muted">Deze grafiek toont hoeveel dagdoelen je per dag haalde. Voor je streak is één afgerond dagdoel genoeg; een volledig groene dag is perfect.</p><div class="charts tall">${last.map(d=>{const x=getDayStatus(d),pct=x.pct===null?0:x.pct;return `<div class="chartcol"><div class="chartbar ${x.neutral?'neutral':''}" style="height:${x.neutral?'7':Math.max(7,pct)}%" title="${e(dateName(d))}: ${x.neutral?'rust/geen doelen':pct+'%'}"></div><span>${dateName(d,{weekday:'short'}).slice(0,2)}</span></div>`;}).join('')}</div></section><section class="card"><div class="card-title"><h2>Historie in één oogopslag</h2><span class="chip">30 dagen</span></div><div class="heatmap">${Array.from({length:30},(_,i)=>{const d=addDays(nowDay(),i-29),s=getDayStatus(d);const c=d<data.created?'future':s.rest?'rest':s.pct===null?'empty':s.pct===100?'perfect':s.pct>=50?'medium':'low';return `<div class="heat ${c}" title="${e(dateName(d))}: ${s.pct===null?'neutraal':s.pct+'%'}"></div>`}).join('')}</div><div class="heat-legend"><span>Geen activiteit</span><i class="heat empty"></i><i class="heat low"></i><i class="heat medium"></i><i class="heat perfect"></i><span>Alles gehaald</span></div></section><section class="card"><h2>🏆 Jouw mijlpalen</h2><div class="badges">${achievements.map(a=>`<div class="achievement ${a.done?'':'locked'}"><div class="aicon">${a.icon}</div><div class="achtitle">${a.title}</div><div class="achdesc">${a.need}</div></div>`).join('')}</div></section></div><div class="stack"><section class="card"><h2>Groeirapport</h2><div class="report-row"><span>🧠 Bibi’s evolutie</span><b>${stageNames[mood().stage]}</b></div><div class="report-row"><span>💚 Breinkracht</span><b>${mood().health}%</b></div><div class="report-row"><span>✅ Unieke overwinningen</span><b>${total}</b></div><div class="report-row"><span>📆 Activiteiten gepland</span><b>${data.events.length}</b></div><div class="report-row"><span>📝 Toetsen ingevoerd</span><b>${exams}</b></div><div class="report-row"><span>🎁 Schatkisten geopend</span><b>${data.chestsOpened}</b></div></section><section class="card"><h2>Weekdoelen</h2>${activeGoals(nowDay(),'weekly').length?activeGoals(nowDay(),'weekly').map(g=>`<div class="week-progress"><div class="space"><strong>${e(g.icon+' '+g.title)}</strong><span class="muted small">${weekCount(g)}/${g.times}</span></div>${progressBar(Math.round(weekCount(g)/g.times*100))}</div>`).join(''):'<p class="muted small">Je hebt nog geen weekdoelen ingesteld.</p>'}<p class="notice">Weekdoelen tellen pas na het einde van de week als gemist. Het invullen van een nieuwe gewoonte verandert eerdere dagen niet.</p></section></div></div>`;}
 function goalsPage(){const gs=activeGoals();const archived=data.goals.filter(g=>g.archived);
 return `<div class="panel-grid"><div class="stack"><section class="card"><div class="card-title"><div><div class="eyebrow">JOUW REGELS</div><h2>Mijn doelen</h2></div><button class="button" data-add-goal>+ Doel</button></div><p class="muted small" style="margin-bottom:15px">Verander of archiveer doelen wanneer je wilt. Eerder behaalde dagen, records en verdiende XP blijven bewaard.</p><div class="goal-manager">${gs.map(g=>`<article class="goal-manager-item"><span class="goal-icon">${e(g.icon)}</span><div style="flex:1"><b>${e(g.title)}</b><p class="small muted">${g.freq==='weekly'?g.times+' keer per week':'Elke dag'} · ${g.kind==='max'?'Maximaal '+g.target+' min':g.kind==='min'?'Minstens '+g.target:'Afvinken'}</p></div><button class="iconbtn" data-edit-goal="${e(g.id)}">✎</button><button class="iconbtn" data-archive-goal="${e(g.id)}">×</button></article>`).join('')||'<div class="empty">Maak jouw eerste doel.</div>'}</div>${archived.length?`<p class="small muted" style="margin-top:16px">📦 ${archived.length} gearchiveerde ${archived.length===1?'gewoonte':'gewoontes'} (historie bewaard)</p>`:''}</section><section class="card"><div class="card-title"><h2>⚙️ Instellingen</h2></div><div class="setting-row"><div><b>Spelersnaam</b><p class="small muted">Wat Bibi tegen je zegt</p></div><button class="button alt sm" data-rename>${e(data.player.name)} ✎</button></div><div class="setting-row"><div><b>Geluid</b><p class="small muted">Beloningsgeluiden aan of uit</p></div><button class="button alt sm" data-sound>${data.sound?'🔊 Aan':'🔇 Uit'}</button></div><div class="setting-row"><div><b>Back-up maken</b><p class="small muted">Download je gegevens als JSON</p></div><button class="button alt sm" data-export>⇩ Exporteer</button></div><div class="setting-row"><div><b>Back-up herstellen</b><p class="small muted">Ook compatibel met BRAINBOOST 1.0</p></div><button class="button alt sm" data-import>⇧ Importeer</button><input id="importfile" type="file" accept="application/json,.json" hidden></div><div class="setting-row"><div><b>Opnieuw beginnen</b><p class="small muted">Verwijdert doelen, historie en beloningen</p></div><button class="button danger sm" data-reset>Reset data</button></div></section></div><div class="stack"><section class="card"><div class="eyebrow">HULP BIJ JE NIEUWE GEWOONTES</div><h2>Begin klein, groei groot.</h2><p class="muted">Kies doelen die bij je passen. Drie haalbare doelen geven je meer houvast dan vijftien onmogelijke.</p><div class="tips"><p>🏃 <b>Sporten:</b> stel een weekdoel in, zodat je zelf je sportdagen kiest.</p><p>📵 <b>Schermtijd:</b> vul aan het einde van de dag je echte minuten in. Automatisch meten kan deze website niet.</p><p>🌤️ <b>Rustdagen:</b> een rustdag telt niet als mislukking.</p></div></section><section class="card"><h2>🔒 Opslag & privacy</h2><p class="muted small" style="margin-top:8px">Je gegevens blijven in de lokale opslag van deze browser. Ze worden niet naar een server gestuurd. Voor gebruik op meerdere apparaten heb je een back-up nodig. Privé-/incognitomodus kan gegevens wissen. Vriendenuitdagingen delen codes, zonder live synchronisatie.</p></section></div></div>`;}
+nction(){/*
 function onboarding(){
-  const c=data.player.color;
-  const steps=['1. Jouw naam','2. Jouw doelen','3. Zo speel je'];
-  return `<div class="onboard-bg"><section class="onboard-card" aria-label="Welkom bij BRAINBOOST">
+  return `<div class="onboard-bg"><section class="onboard-card" aria-label="BRAINBOOST speelbare gastdemo">
     <div class="onbrand"><span class="brand-icon">🧠</span><b>BRAINBOOST <span>5.0</span></b></div>
-    <div class="on-step-label"><strong>${steps[onStep-1]}</strong><span>Stap ${onStep} van 3</span></div>
-    <div class="stepper" aria-label="Voortgang kennismaking">${[1,2,3].map(i=>`<span class="${onStep>=i?'active':''}"></span>`).join('')}</div>
-    ${onStep===1?`
-      <div class="on-hero on-hero-compact"><div class="on-mascot">${brainSvg(160)}</div>
-      <div class="eyebrow">WELKOM BIJ JE NIEUWE AVONTUUR</div>
-      <h1>Jouw beste versie,<br><span class="grad-text">één dag tegelijk.</span></h1>
-      <p class="muted">Je kiest doelen, verdient punten zodra je ze echt hebt gedaan en ziet Bibi groeien.</p></div>
-      <div class="on-how"><div>🎯<b>Doelen kiezen</b></div><div>✅<b>Afvinken</b></div><div>🧠<b>Bibi groeit</b></div></div>
-      <form id="onboard-name-form"><div class="field"><label for="onname">Hoe heet je?</label><input id="onname" name="playerName" aria-label="Jouw naam" maxlength="25" required enterkeyhint="go" autocomplete="nickname" placeholder="Typ hier je naam" value="${e(onNameDraft)}"></div></form>
-      <p class="enter-hint">↵ Druk op <kbd>Enter</kbd> om verder te gaan</p>
-      <label class="small muted" style="display:block;margin-top:12px">Kies de kleur van Bibi</label>
-      <div class="color-choices">${['#f39bd5','#ad92ff','#83e6d8','#b9f09b','#ffbd86'].map(color=>`<button type="button" class="color-opt ${c===color?'selected':''}" aria-label="Kies Bibi's kleur" aria-pressed="${c===color}" data-color="${color}" style="background:${color}"></button>`).join('')}</div>`:
-      onStep===2?`
-      <div class="eyebrow">KIES WAAR JE IN WILT GROEIEN</div><h1>Kies je eerste missies 🎯</h1>
-      <p class="muted">Begin met 2 of 3 haalbare doelen. Je mag ze altijd veranderen.</p>
-      <div class="on-tip">💡 <span><b>Elke dag</b> = dagelijks één keer. <b>Per week</b> = bijvoorbeeld drie keer sporten, op dagen die jij zelf kiest.</span></div>
-      <div class="preset-list">${presets.map((g,i)=>`<button type="button" class="preset ${onChoices.has(i)?'picked':''}" aria-pressed="${onChoices.has(i)}" data-preset="${i}"><span>${g.icon}</span><div><b>${e(g.title)}</b><p class="muted small">${g.freq==='weekly'?g.times+'× per week — vrij te kiezen dagen':'Elke dag'}</p></div><i>${onChoices.has(i)?'✓':'＋'}</i></button>`).join('')}</div>
-      <p class="on-selected">✅ ${onChoices.size} ${onChoices.size===1?'doel':'doelen'} gekozen</p>`:
-      `<div class="on-hero on-hero-compact"><div class="on-mascot">${brainSvg(150)}</div><div class="eyebrow">KLAAR VOOR JE EERSTE DAG?</div><h1>Zo speel je BRAINBOOST.</h1>
-        <p class="muted">Je hebt ${onChoices.size} ${onChoices.size===1?'doel':'doelen'} gekozen. Meer hoef je niet te doen om te beginnen.</p></div>
-       <div class="on-instructions"><div><span>1</span><div><b>Open Vandaag</b><p>Daar zie je je gekozen doelen.</p></div></div><div><span>2</span><div><b>Doe iets in het echte leven</b><p>Bijvoorbeeld leren of sporten.</p></div></div><div><span>3</span><div><b>Druk op Voltooid of Bijwerken</b><p>Je verdient XP, verslaat weekbazen en bouwt een wereld op.</p></div></div></div>
-       <div class="on-tip">🔥 Je streak groeit al als je <b>één dagelijks doel</b> haalt. Je hoeft niet alles perfect te doen.</div>`}
-    <div class="onboard-btn">${onStep===1?'':`<button class="button ghost" type="button" data-back>← Terug</button>`}<button class="button on-next" type="${onStep===1?'submit':'button'}" ${onStep===1?'form="onboard-name-form"':'data-next'}>${onStep===3?'🚀 Start met mijn eerste doel':'Verder →'}</button></div>
+    <div class="on-hero on-hero-compact"><div class="on-mascot">${brainSvg(155)}</div>
+      <div class="eyebrow">SPEELBARE DEMO · GEEN ACCOUNT NODIG</div>
+      <h1>Hoi! Hoe heet jij?</h1>
+      <p class="muted">Vul alleen je naam in en ontdek BRAINBOOST samen met Bibi. Je kunt direct aan de slag!</p>
+    </div>
+    <form id="onboard-name-form" autocomplete="off">
+      <div class="field"><label for="onname">Jouw naam</label><input id="onname" name="playerName" aria-label="Jouw naam" maxlength="25" required enterkeyhint="go" autocomplete="off" placeholder="Typ hier je naam" value="${e(onNameDraft)}"></div>
+      <button class="button on-next" type="submit" style="width:100%;margin-top:14px">🚀 Start de demo</button>
+    </form>
+    <p class="enter-hint">↵ Druk op <kbd>Enter</kbd> om meteen te starten</p>
+    <div class="on-how" style="margin-top:20px"><div>🎯<b>Doelen uitproberen</b></div><div>⭐<b>XP verdienen</b></div><div>🌎<b>Wereld bouwen</b></div></div>
+    <p class="notice" style="margin-top:15px">🔒 Demo zonder inloggen. Je voortgang wordt alleen in deze browser opgeslagen, niet in je online account.</p>
   </section></div>`;
 }
 function goalDialog(g=null){const sp=g?historic(g,nowDay())||g.versions[g.versions.length-1]:null;showPopup(`<h2>${g?'Doel aanpassen':'Nieuw doel maken'} 🎯</h2><p class="muted small">Je oude prestaties blijven beschermd als je een doel aanpast.</p><form id="goalform"><div class="field"><label>Naam</label><input name="title" required maxlength="65" value="${e(sp?.title||'')}" placeholder="Bijvoorbeeld Frans leren"></div><div class="formrow"><div class="field"><label>Emoji</label><input name="icon" maxlength="6" value="${e(sp?.icon||'🎯')}"></div><div class="field"><label>Hoe vaak?</label><select name="freq"><option value="daily" ${sp?.freq!=='weekly'?'selected':''}>Elke dag</option><option value="weekly" ${sp?.freq==='weekly'?'selected':''}>Per week</option></select></div></div><div class="formrow"><div class="field"><label>Meten</label><select name="kind"><option value="check" ${sp?.kind==='check'?'selected':''}>Afvinken</option><option value="min" ${sp?.kind==='min'?'selected':''}>Minimaal aantal</option><option value="max" ${sp?.kind==='max'?'selected':''}>Maximaal aantal</option></select></div><div class="field"><label>Hoeveelheid / keer</label><input name="target" required type="number" min="1" max="10000" step="1" value="${sp?.freq==='weekly'?sp.times:sp?.target||30}"></div></div><p class="notice">Bij een weekdoel geef je het aantal keren per week op (1–7). Bij een dagelijks maximum gebruik je bijvoorbeeld <b>120 minuten schermtijd</b>.</p><div class="formactions"><button class="button ghost" type="button" data-close>Annuleren</button><button class="button" type="submit">${g?'Bewaar wijziging':'Voeg doel toe'}</button></div></form>`);
@@ -858,19 +846,21 @@ const page=({today:todayPage,planner:plannerPage,arena:arenaPage,world:worldPage
 app.innerHTML=`<div class="shell">${sideNav()}<main>${header()}${page()}<footer class="app-footer">BRAINBOOST 5.0 • Jouw vooruitgang blijft in deze browser • <span>Elk stapje telt 💜</span></footer></main></div>`;}
 function navigate(to){if(!['today','planner','arena','world','quests','story','friends','collection','bibi','stats','goals'].includes(to))return;view=to;render();window.scrollTo({top:0,behavior:'instant'});}
 
+nction(){/*
 function advanceOnboarding(){
   if(data.onboarded)return;
-  if(onStep===1){
-    const name=String($('#onname')?.value??onNameDraft).trim();
-    if(!name){toast('Vul eerst je naam in.');$('#onname')?.focus();return;}
-    onNameDraft=name.slice(0,25);data.player.name=onNameDraft;save();
-  }
-  if(onStep===3){
-    if(!onChoices.size){toast('Kies ten minste één doel.');onStep=2;render();return;}
-    data.goals=[...onChoices].map(i=>newGoal(presets[i]));
-    data.onboarded=true;data.created=nowDay();save();navigate('today');
-    toast(`Welkom, ${data.player.name}! Kies je eerste doel. 🚀`);
-  }else{onStep++;render();}
+  const name=String($('#onname')?.value??onNameDraft).trim().slice(0,25);
+  if(!name){toast('Vul eerst je naam in.');$('#onname')?.focus();return;}
+  onNameDraft=name;
+  data.player.name=name;
+  data.created=nowDay();
+  // The demo starts immediately with three editable example goals.
+  // No registration, email address, password or account backend is used.
+  data.goals=presets.slice(0,3).map(goal=>newGoal(goal,data.created));
+  data.onboarded=true;
+  save();
+  navigate('today');
+  toast(`Welkom, ${data.player.name}! Veel plezier met de demo. 🚀`);
 }
 
 // ===== BRAINBOOST 5.0: Living Worlds Edition =====
@@ -973,6 +963,14 @@ document.addEventListener('submit',ev=>{
  ev.preventDefault();advanceOnboarding();
 });
 document.addEventListener('click',ev=>{const btn=ev.target?.closest?.('button');if(!btn)return;const d=btn.dataset;
+nction(){/*
+if('demoNew' in d){
+  if(!confirm('Een nieuwe gastdemo beginnen? De voortgang van deze gast in deze browser wordt gewist.'))return;
+  try{localStorage.removeItem(KEY)}catch{}
+  data=initial();view='today';selected=nowDay();onStep=1;onChoices=new Set([0,1,2]);onNameDraft='';
+  render();$('#onname')?.focus();return;
+}
+
 if(d.nav){navigate(d.nav);return;}
 if('friendCreate'in d){makeChallenge();return;}
 if('friendImport'in d){importChallengeDialog();return;}
